@@ -13,11 +13,13 @@ Twitter, Windows Live, and other identity providers.  Tres chic.
 Installation
 ============
 
-1. Enable the module in Drupal
-2. Provide your RPX API Key at Administer >> Site Configuration >> RPX Configuration
+1. Download the module, unzip the source, and put the resulting directory into the 
+   modules/ directory of your Drupal application.
+2. Enable the module in Drupal at Administer > Site Building > Modules > Other
+3. Provide your RPX API Key at Administer > Site Configuration > RPX Configuration
  
 ... If you don't have an API Key, click the "Setup this site for RPX" link, and one will
-automatically be setup for you.
+installed for you.
 
 In order to enable Facebook, MySpace, and Windows Live accounts, you must register with the
 respective services.  Links from the control panel are provided, with step-by-step setup 
