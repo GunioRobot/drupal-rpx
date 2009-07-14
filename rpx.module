@@ -1,0 +1,500 @@
+<?php
+
+// $Id$
+
+/*
+ * @file
+ * Adds the RPX sign-in widget from JanRain to your website
+ */
+
+/**
+ * Implementation of hook_init()
+ */
+function rpx_init() {
+  require_once(drupal_get_path('modules', 'rpx') . 'rpx.class.php');
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function rpx_menu() {
+  $items['admin/settings/rpx'] = array(
+      'title' => 'RPX Configuration',
+      'description' => t('Configure the settings for RPX.'),
+      'page callback' => 'rpx_admin_settings',
+      'access arguments' => array('administer settings'),
+      'type' => MENU_NORMAL_ITEM
+    );
+
+  $items['rpx/end_point'] = array(
+      'title' => 'RPX Transaction End Point',
+      'page callback' => 'rpx_end_point',
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK
+    );
+
+  $items['rpx/registration'] = array(
+      'title' => 'RPX Registration',
+      'description' => t('Register With an Existing Account'),
+      'page callback' => 'rpx_registration_page',
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK
+    );
+  
+
+  return $items;
+}
+
+function rpx_registration_page() {
+  // check to see if they have RPX information in their session.
+  if ( $_SESSION['rpx'] ) {
+    $output = t('Register a New Account');
+    $output .= drupal_get_form('rpx_registration');
+  } else {
+    // no RPX info, not logged in ... give 'em the RPX iframe.
+    $output = '<iframe id="rpx-embedded-registration" src="'. url('https://rpxdemo.rpxnow.com/openid/embed?token_url=' . _rpx_token_url()) . '" scrolling="no" frameBorder="no" style="width:400px;height:240px;"></iframe>';
+  }
+  return $output;
+}
+
+function rpx_registration() {
+  $form['name'] = array(
+      '#title' => t('User Name'),
+      '#type' => 'textfield',
+      '#default_value' => $_SESSION['rpx']['profile']['preferredUsername'],
+      '#description' => t('Please enter your preferred user name.')
+    );
+  
+  $form['mail'] = array(
+      '#title' => t('E-Mail'),
+      '#type' => 'textfield',
+      '#default_value' => $_SESSION['rpx']['profile']['email'],
+      '#description' => t('Please enter your e-mail address.')
+    );
+    
+  $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit')
+    );
+  
+  return $form;
+}
+
+function rpx_registration_validate( $form, &$form_state ) {
+  
+  // enforce status and authname_rpx
+  $form_state['values']['pass']  = user_password();
+  $form_state['values']['status'] = variable_get('user_register', 1) == 1;
+  $form_state['values']['authname_rpx'] = $_SESSION['rpx']['profile']['identifier'];  // for external authorization
+    
+  // must be unique name, must be unique mail
+  if (user_load( array( 'name' => $form_state['values']['name'] ) ) )
+    form_set_error('name', t('Someone is already using that user name, please use another.') );
+  if (user_load( array( 'mail' => $form_state['values']['mail'] ) ) )
+    form_set_error('mail', t('Someone has already registered that e-mail address.  Please enter another, or perhaps you have already registered with a different account?'));
+}
+
+function rpx_registration_submit( $form, &$form_state ) {
+  $account = user_save('', $form_state['values']);
+  $account = _rpx_populate_user_record( $account, $_SESSION['rpx'] );
+  
+  // log 'em in, yo.
+  user_external_login( $account );
+  drupal_goto();
+}
+
+function rpx_end_point() {
+  unset($_REQUEST['destination']); // we control your destiny, yo.
+  
+  // first, check to see if we have a token -- we're completing an RPX transaction, in that case!
+  if ($_GET['token']) {
+    
+    $_SESSION['rpx'] = RPX::auth_info( $_GET['token'], variable_get('rpx_apikey', '') );
+    
+    // pull up the Drupal identity
+    $account = user_external_load($_SESSION['rpx']['profile']['identifier']);
+
+    // check for a UID; this indicates whether a person is registered.
+    if ( $account->uid ) {
+      // ok, log them in, go to where we need to go.
+      user_external_login($account);
+      drupal_set_message( t('Welcome back, ' . $account->full_name) );
+    } else {
+      // fresh meat, go get registered.
+      if (! _rpx_blind_registration() ) {
+        drupal_goto('rpx/registration'); // hmm, missing pieces.  go get 'em.
+      }
+    }
+  }
+  drupal_goto();
+}
+
+
+/**
+ * Attempts to build and save a new user record from RPX data.
+ */
+function _rpx_blind_registration() {  
+  // check if users are allowed to register on their own
+  if (variable_get('user_register', 1)) {
+    // the person isn't registered, and they can register, so they should!
+    
+    // fill in the default data
+    $form_state['redirect'] = NULL;
+    $form_state['values']['name'] = $_SESSION['rpx']['profile']['preferredUsername'];
+    $form_state['values']['mail'] = $_SESSION['rpx']['profile']['email'];
+    $form_state['values']['pass']  = user_password();
+    $form_state['values']['status'] = variable_get('user_register', 1) == 1;
+    $form_state['values']['authname_rpx'] = $_SESSION['rpx']['identifier'];  // for external authorization
+
+    $form = drupal_retrieve_form('rpx_registration', $form_state);
+    drupal_prepare_form('rpx_registration', $form, $form_state);
+    drupal_validate_form('rpx_registration', $form, $form_state);
+    
+    // handle validation errors
+    if (!form_get_errors()) {
+      rpx_registration_submit( $form, $form_state );
+      return true;
+    }
+  } 
+
+  return false;
+}
+
+/**
+ * Implements hook_user()
+ */
+function rpx_user( $op, &$edit, &$account, $category = NULL ) {
+  switch( $op ) {
+    case 'login': // user just logged in
+      return _rpx_user_login( $account );
+    case 'register': // account registration form is about to be displayed
+      return _rpx_user_register();
+  }
+}
+
+/**
+ * Add RPX login options to the registration page
+ */
+function _rpx_user_register() {
+
+  // RPX identity field set
+  $fields['identity']['signin'] = array(
+      '#value' => _rpx_signin_block()
+    );
+
+  return $fields;
+}
+
+
+/**
+ * Update profile information from RPX after a successful login
+ */
+function _rpx_user_login( &$account ) {
+  if ($_SESSION['rpx'] && $account->uid)
+    _rpx_populate_user_record( $account, $_SESSION['rpx']['profile'] );
+}
+
+
+/**
+ * Populates a given account's data with $profile from an RPX server
+ */
+function _rpx_populate_user_record( &$account, $profile ) {
+  
+  $rpx_data = array(
+      'full_name' => $profile['name']['formatted'],
+      'url' => $profile['url'],
+      'identity_provider' => $profile['providerName'],
+      'gender' => $profile['gender'],
+      'birthday' => $profile['birthday'],
+      'identity' => $profile['identifier'],
+      'email' => $profile['email']
+    );
+  
+  return user_save( $account, $rpx_data );
+}
+
+/**
+ * RPX module settings page
+ */
+function rpx_admin_settings() {
+  $api_key = variable_get('rpx_apikey', FALSE);
+  
+  // If there is an api key and no rpx_realm OR the api key is being changed,
+  // then do a callback lookup to get new rpx variables
+  if (($api_key && !variable_get('rpx_realm', '')) || (isset($_POST['rpx_apikey']) && $api_key != $_POST['rpx_apikey'])) {
+    // If the api key has changed, use the new key instead of the stored one
+    $api_key = isset($_POST['rpx_apikey']) ? $_POST['rpx_apikey'] : $api_key;
+    $lookup = RPX::lookup($api_key, 'apiKey');        
+    if ($lookup['adminUrl'] != 'N' ) {
+      variable_set('rpx_admin_url', $lookup['adminUrl']);
+      variable_set('rpx_realm', $lookup['realm']);
+    } else {
+      drupal_set_message( t('Looks like your API key was incorrect.  Please verify the key and try again.'), 'error', true );
+    }
+  }
+  // If a token is set then lookup both the api key and extra rpx variables
+  elseif (isset($_GET['token'])) {
+    $lookup = RPX::lookup($_GET['token'], 'token');
+    variable_set('rpx_admin_url', $lookup['adminUrl']);
+    variable_set('rpx_realm', $lookup['realm']);
+    variable_set('rpx_apikey', $lookup['apiKey']);
+    // Redirect back to the setting page, without the token appended
+    drupal_goto('admin/settings/rpx');
+  }
+  
+  return drupal_get_form('rpx_admin_settings_form');
+}
+
+/**
+ * RPX Module settings form
+ */
+function rpx_admin_settings_form() {
+  $api_key = variable_get('rpx_apikey', FALSE);
+  
+  if (!$api_key && !isset($_GET['token'])) {
+    global $user, $base_url;
+    $request_id = $_SESSION['rpx_request_id'] = md5($user->mail . time());
+    $text = '<p>Before using RPX with this site you must setup an account at rpxnow.com. Visiting following link will allow you to setup your RPX account and will return the required api key: <strong><a href="!create_rp">Setup this site for RPX</a></strong></p>';
+    $form['setup'] = array('#value' => t($text, array(
+      '!create_rp' => RPX::create_api .'?'. http_build_query(array(
+        'base' => $base_url . base_path(),
+        'return' => url('admin/settings/rpx', array('absolute' => TRUE)),
+        'requestId' => $request_id
+      ))
+    )));
+  }
+  
+  $form['api'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('RPX Setup'),
+    '#collapsible' => TRUE,
+    '#collapsed' => variable_get('rpx_apikey', '') ? TRUE : FALSE,
+    '#description' => t('To make changes to your RPX account and integration with this site visit <a href="@account_link">@account_link</a>.', array('@account_link' => 'https://rpxnow.com/account')),
+  );
+  $form['api']['rpx_apikey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('RPX API Key'),
+    '#default_value' => variable_get('rpx_apikey', ''),
+    '#description' => t('The API Key provided for this site at <a href="@account_link">@account_link</a>', array('@account_link' => 'https://rpxnow.com/account')),
+  );
+  
+  $form['api']['rpx_realm_hidden'] = array(
+    '#type' => 'textfield',
+    '#title' => t('RPX Realm'),
+    '#default_value' => variable_get('rpx_apikey', '') ? variable_get('rpx_realm', '') : '',
+    '#description' => t('The RPX realm for this site (Set automatically based on your API Key)'),
+    '#attributes' => array('disabled' => 'disabled')
+  );
+  $form['api']['rpx_admin_url_hidden'] = array(
+    '#type' => 'textfield',
+    '#title' => t('RPX Admin URL'),
+    '#default_value' => variable_get('rpx_apikey', '') ? variable_get('rpx_admin_url', '') : '',
+    '#description' => t('The RPX admin URL (Set automatically based on your API Key)'),
+    '#attributes' => array('disabled' => 'disabled')
+  );
+  
+  
+  
+
+  $form['providers'] = array(
+      '#type' => 'fieldset',
+      '#title' => 'Identity Providers',
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE
+    );
+
+  $form['providers']['rpx_openid'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept OpenIDs'),
+    '#default_value' => variable_get('rpx_openid', true)
+    );
+
+  $form['providers']['rpx_aol'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept AOL Identities'),
+    '#default_value' => variable_get('rpx_aol', true)
+    );
+
+  $form['providers']['rpx_google'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept Google Identities'),
+    '#default_value' => variable_get('rpx_google', true)
+    );
+
+  $form['providers']['rpx_yahoo'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept Yahoo! Identities'),
+    '#default_value' => variable_get('rpx_yahoo', true)
+    );
+
+  $form['providers']['rpx_facebook'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept Facebook Identities'),
+    '#default_value' => variable_get('rpx_facebook', false),
+    '#description' => t('<a href="' . 
+      str_replace( 'stats', 'facebook', variable_get('rpx_admin_url','') ) . 
+      '" target="_blank">Click here to install your Facebook Application Key</a>.')
+    );
+
+  $form['providers']['rpx_myspace'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept MySpace Identities'),
+    '#default_value' => variable_get('rpx_myspace', false),
+    '#description' => t('<a href="' . 
+      str_replace( 'stats', 'myspace_settings', variable_get('rpx_admin_url','') ) . 
+      '" target="_blank">Click here to install your MySpace Consumer Key</a>.')
+    );
+    
+  $form['providers']['rpx_live'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Accept Windows Live Identities'),
+    '#default_value' => variable_get('rpx_live', false),
+    '#description' => t('<a href="' . 
+      str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) . 
+      '" target="_blank">Click here to install your Windows Live Application ID</a>.')
+    );
+
+
+  $form['rpx_attach_login_form'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Attach RPX Sign-In link to login forms'),
+    '#default_value' => variable_get('rpx_attach_login_form', 0) ? 1 : 0,
+    '#description' => t('Attach the RPX Sign-In link to regular Drupal login block and the login page'),
+  );
+
+  return system_settings_form($form);
+}
+
+
+
+/**
+ * Implementation of hook_footer() to insert Javascript at the end of the page
+ */
+function rpx_footer($main = 0) {
+  $token_url = _rpx_token_url();
+  $realm = variable_get('rpx_realm','');
+  
+  return '
+    <script type="text/javascript" src="https://rpxnow.com/openid/v2/widget"></script>
+    <script type="text/javascript">
+      <!-- Begin RPX Sign In from JanRain. Visit http://www.rpxnow.com/ -->
+      RPXNOW.token_url = "'. $token_url .'";
+      RPXNOW.realm = "' . $realm . '";
+      RPXNOW.overlay = true;
+      RPXNOW.language_preference = "'. _rpx_locale() .'";
+      RPXNOW.flags = "delay_domain_check";
+      <!-- End RPX Sign In -->
+  </script>';
+}
+// 
+/**
+ * Return the current Drupal locale if available from rpxnow.com, otherwise default to english
+ */
+function _rpx_locale() {
+  global $language; 
+
+  // Default to English
+  $locale = 'en';
+  if (in_array($language, RPX::locales())) {
+    $locale = $language;
+  }
+  return $locale;
+}
+
+/**
+ * Implementation of hook_form_alter : adds RPX login to forms.
+ */
+function rpx_form_alter(&$form, &$form_state, $form_id) {
+  if (variable_get('rpx_attach_login_form', 0)) {
+    if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+      $form = _rpx_update_user_login_form($form, $form_state);
+    }
+  }
+  return $form;
+}
+
+function _rpx_update_user_login_form( &$form, &$form_state ) {
+  unset($form['#validate']['openid_login_validate']);
+  unset($form['openid_links']);
+  unset($form['openid_identifier']);
+  unset($form['openid.return_to']);
+  
+  $items = array();
+  $realm = variable_get('rpx_realm', '');
+  $sign_in_url = "https://{$realm}.rpxnow.com/openid/v2/signin";
+  $token_url = _rpx_token_url();
+  $providers = _rpx_providers();
+  foreach ($providers as $provider) {
+    $icons .= l(_rpx_provider_icon($provider['name']), $sign_in_url, array('html' => TRUE, 'query' => array('token_url' => $token_url), 'attributes' => array('class' => 'rpxnow', 'onclick' => 'return false;')));
+  }
+  $items[] = array(
+    'data' => l(t('RPX Sign In'), $sign_in_url, array('query' => array('token_url' => $token_url), 'attributes' => array('class' => 'rpxnow', 'onclick' => 'return false;'))) .'<br />'. $icons,
+    'class' => 'rpx-link',
+  );
+  
+  $form['rpx_links'] = array(
+    '#value' => theme('item_list', $items),
+    '#weight' => 1,
+  );
+  return $form;
+}
+
+/**
+ * Return the URL that will receive the RPX sign-in callback
+ */
+function _rpx_token_url() {
+  return url('rpx/end_point', array('query' => drupal_get_destination(), 'absolute' => TRUE));
+}
+
+
+/**
+ * Return an array of RPX providers
+ */
+function _rpx_providers() {
+  $providers['openid'] = array('name' => 'openid', 'title' => 'OpenID', 'domain' => '');
+  $providers['aol'] = array('name' => 'aol', 'title' => 'AOL/AIM', 'domain' => 'openid.aol.com');
+  $providers['google'] = array('name' => 'google', 'title' => 'Google', 'domain' => 'google.com');
+  $providers['yahoo'] = array('name' => 'yahoo', 'title' => 'Yahoo!', 'domain' => 'yahoo.com');
+  $providers['facebook'] = array('name' => 'facebook', 'title' => 'Facebook', 'domain' => 'facebook.com');
+  $providers['myspace'] = array('name' => 'myspace', 'title' => 'MySpace', 'domain' => 'myspace.com');
+  $providers['live'] = array('name' => 'live', 'title' => 'Windows Live', 'domain' => 'live.com');
+  
+  $active = array();
+  foreach( $providers as $key => $value ) {
+    if (variable_get('rpx_' . $key, true))
+      $active[$key] = $value;
+  }
+  
+  return $active;
+}
+
+/**
+ * Return markup for a specific provider icon
+ */
+function _rpx_provider_icon($name) {
+  $providers = _rpx_providers();
+  $provider = $providers[$name];
+  $path = drupal_get_path('module', 'rpx');
+  return theme('image', "{$path}/images/{$name}.png", $provider['title'], $provider['title'], array('class' => 'rpx-icon'));
+}
+
+
+function _rpx_signin_block() {
+  global $user;
+  
+  $realm = variable_get('rpx_realm', '');
+  $sign_in_url = "https://{$realm}.rpxnow.com/openid/v2/signin";
+  $token_url = _rpx_token_url();
+  
+  // If already authenticated then don't show this block
+  if ($user->uid > 0) {
+    return FALSE;
+  }
+  $providers = _rpx_providers();
+  foreach ($providers as $provider) {
+    $line[] = _rpx_provider_icon($provider['name']) .' '. l($provider['title'], $sign_in_url, array('query' => array('token_url' => $token_url), 'attributes' => array('class' => 'rpxnow', 'onclick' => 'return false;')));
+  }
+  $output = 'Register or sign-in using one of these providers.';
+  $output .= theme('item_list', $line);
+  return $output;
+}
