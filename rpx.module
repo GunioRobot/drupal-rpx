@@ -12,6 +12,7 @@
  */
 function rpx_init() {
   require_once(drupal_get_path('modules', 'rpx') . 'rpx.class.php');
+  drupal_add_css('rpx.css');
 }
 
 /**
