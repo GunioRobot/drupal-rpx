@@ -11,8 +11,8 @@
  * Implementation of hook_init()
  */
 function rpx_init() {
-  require_once('rpx.class.php');
-  //LMT: add CSS like this drupal_add_css('drupal-rpx.css');
+  require_once(drupal_get_path('modules', 'rpx') . 'rpx.class.php');
+  drupal_add_css('rpx.css');
 }
 
 /**
