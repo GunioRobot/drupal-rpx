@@ -11,7 +11,8 @@
  * Implementation of hook_init()
  */
 function rpx_init() {
-  require_once(drupal_get_path('modules', 'rpx') . 'rpx.class.php');
+  require_once('rpx.class.php');
+  //LMT: add CSS like this drupal_add_css('drupal-rpx.css');
 }
 
 /**
@@ -29,7 +30,7 @@ function rpx_menu() {
   $items['rpx/end_point'] = array(
       'title' => 'RPX Transaction End Point',
       'page callback' => 'rpx_end_point',
-      'access callback' => TRUE,
+      'access callback' => TRUE, // LMT: might want to consider something like this !empty($_GET['token'])
       'type' => MENU_CALLBACK
     );
 
@@ -37,7 +38,7 @@ function rpx_menu() {
       'title' => 'RPX Registration',
       'description' => t('Register With an Existing Account'),
       'page callback' => 'rpx_registration_page',
-      'access callback' => TRUE,
+      'access callback' => TRUE, // LMT: should authenticated users be bounced?
       'type' => MENU_CALLBACK
     );
   
@@ -125,8 +126,11 @@ function rpx_end_point() {
         drupal_goto('rpx/registration'); // hmm, missing pieces.  go get 'em.
       }
     }
+  } else {  
+    // LMT: not sure why we're heading home here. Perhaps drupal_access_denied() or set a message like below
+    drupal_set_message('You need a token to be here!');
+    drupal_access_denied();
   }
-  drupal_goto();
 }
 
 
@@ -176,13 +180,17 @@ function rpx_user( $op, &$edit, &$account, $category = NULL ) {
  * Add RPX login options to the registration page
  */
 function _rpx_user_register() {
-
   // RPX identity field set
-  $fields['identity']['signin'] = array(
+  $form['rpx_providers'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('RPX Providers'),
+    '#collapsible' => TRUE,
+    '#weight' => 4);  
+  $form['rpx_providers']['signin'] = array(
       '#value' => _rpx_signin_block()
     );
 
-  return $fields;
+  return $form;
 }
 
 
@@ -293,9 +301,6 @@ function rpx_admin_settings_form() {
     '#attributes' => array('disabled' => 'disabled')
   );
   
-  
-  
-
   $form['providers'] = array(
       '#type' => 'fieldset',
       '#title' => 'Identity Providers',
@@ -303,58 +308,29 @@ function rpx_admin_settings_form() {
       '#collapsed' => FALSE
     );
 
-  $form['providers']['rpx_openid'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept OpenIDs'),
-    '#default_value' => variable_get('rpx_openid', true)
-    );
-
-  $form['providers']['rpx_aol'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept AOL Identities'),
-    '#default_value' => variable_get('rpx_aol', true)
-    );
-
-  $form['providers']['rpx_google'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept Google Identities'),
-    '#default_value' => variable_get('rpx_google', true)
-    );
-
-  $form['providers']['rpx_yahoo'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept Yahoo! Identities'),
-    '#default_value' => variable_get('rpx_yahoo', true)
-    );
-
-  $form['providers']['rpx_facebook'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept Facebook Identities'),
-    '#default_value' => variable_get('rpx_facebook', false),
-    '#description' => t('<a href="' . 
+  // LMT: note approach to checkbox list.
+  $providers = array(
+    'rpx_openid' => t('Accept OpenIDs'), 
+    'rpx_aol' => t('Accept AOL Identities'), 
+    'rpx_google' => t('Accept Google Identities'),
+    'rpx_yahoo' => t('Accept Yahoo! Identities'),
+    'rpx_facebook' => t('Accept Facebook Identities') . ' <a href="' . 
       str_replace( 'stats', 'facebook', variable_get('rpx_admin_url','') ) . 
-      '" target="_blank">Click here to install your Facebook Application Key</a>.')
-    );
-
-  $form['providers']['rpx_myspace'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept MySpace Identities'),
-    '#default_value' => variable_get('rpx_myspace', false),
-    '#description' => t('<a href="' . 
-      str_replace( 'stats', 'myspace_settings', variable_get('rpx_admin_url','') ) . 
-      '" target="_blank">Click here to install your MySpace Consumer Key</a>.')
-    );
-    
-  $form['providers']['rpx_live'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Accept Windows Live Identities'),
-    '#default_value' => variable_get('rpx_live', false),
-    '#description' => t('<a href="' . 
-      str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) . 
-      '" target="_blank">Click here to install your Windows Live Application ID</a>.')
-    );
-
-
+      '" target="_blank">Install your Facebook Application Key</a>',
+    'rpx_myspace' => t('Accept MySpace Identities') . ' <a href="' . 
+       str_replace( 'stats', 'myspace_settings', variable_get('rpx_admin_url','') ) . 
+       '" target="_blank">Install your MySpace Consumer Key</a>',
+    'rpx_live' => t('Accept Windows Live Identities') . ' <a href="' . 
+       str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) . 
+       '" target="_blank">Install your Windows Live Application ID</a>'
+  );  
+  $form['providers']['rpx_providers'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Select which providers to accept'),
+    '#options' => $providers,
+    '#default_value' => variable_get('rpx_providers', array())
+  );
+  
   $form['rpx_attach_login_form'] = array(
     '#type' => 'checkbox',
     '#title' => t('Attach RPX Sign-In link to login forms'),
@@ -364,8 +340,6 @@ function rpx_admin_settings_form() {
 
   return system_settings_form($form);
 }
-
-
 
 /**
  * Implementation of hook_footer() to insert Javascript at the end of the page
@@ -386,7 +360,7 @@ function rpx_footer($main = 0) {
       <!-- End RPX Sign In -->
   </script>';
 }
-// 
+
 /**
  * Return the current Drupal locale if available from rpxnow.com, otherwise default to english
  */
@@ -405,8 +379,9 @@ function _rpx_locale() {
  * Implementation of hook_form_alter : adds RPX login to forms.
  */
 function rpx_form_alter(&$form, &$form_state, $form_id) {
-  if (variable_get('rpx_attach_login_form', 0)) {
-    if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+  //LMT: flipped conditions to not take db hit if not relevant form
+  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+    if (variable_get('rpx_attach_login_form', 0)) {
       $form = _rpx_update_user_login_form($form, $form_state);
     }
   }
@@ -414,6 +389,7 @@ function rpx_form_alter(&$form, &$form_state, $form_id) {
 }
 
 function _rpx_update_user_login_form( &$form, &$form_state ) {
+  //LMT: these are only there if OpenID enabled? Check for module existence first
   unset($form['#validate']['openid_login_validate']);
   unset($form['openid_links']);
   unset($form['openid_identifier']);
@@ -451,6 +427,7 @@ function _rpx_token_url() {
  * Return an array of RPX providers
  */
 function _rpx_providers() {
+  // LMT: seems this provider list should match that saved in the admin settings and not repeated here. Also needs to respect admin selections
   $providers['openid'] = array('name' => 'openid', 'title' => 'OpenID', 'domain' => '');
   $providers['aol'] = array('name' => 'aol', 'title' => 'AOL/AIM', 'domain' => 'openid.aol.com');
   $providers['google'] = array('name' => 'google', 'title' => 'Google', 'domain' => 'google.com');
@@ -494,7 +471,6 @@ function _rpx_signin_block() {
   foreach ($providers as $provider) {
     $line[] = _rpx_provider_icon($provider['name']) .' '. l($provider['title'], $sign_in_url, array('query' => array('token_url' => $token_url), 'attributes' => array('class' => 'rpxnow', 'onclick' => 'return false;')));
   }
-  $output = 'Register or sign-in using one of these providers.';
-  $output .= theme('item_list', $line);
+  $output .= theme('item_list', $line, t('Register or sign-in using one of these providers.'));
   return $output;
 }
