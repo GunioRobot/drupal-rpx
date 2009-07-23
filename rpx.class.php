@@ -14,6 +14,7 @@ class RPX {
   /* performs a lookup request for getting information about an RPX account */
   function lookup( $value, $type ) {
     $demographics = 'PHP RPX ' . RPX_LIBRARY_VERSION;
+    
     if ( RPX_CLIENT_VERSION ) {
       $demographics .= " / " . RPX_CLIENT_VERSION;
     }

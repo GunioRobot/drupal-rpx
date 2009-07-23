@@ -7,11 +7,12 @@
  * Adds the RPX sign-in widget from JanRain to your website
  */
 
+define('RPX_CLIENT_VERSION', 'Drupal');
+
 /**
  * Implementation of hook_init()
  */
 function rpx_init() {
-  define('RPX_CLIENT_VERSION', 'Drupal');
   require_once('rpx.class.php');
   drupal_add_css('rpx.css');  
 }
@@ -112,7 +113,7 @@ function rpx_end_point() {
   if ($_GET['token']) {
     
     $_SESSION['rpx'] = RPX::auth_info( $_GET['token'], variable_get('rpx_apikey', '') );
-    
+
     // pull up the Drupal identity
     $account = user_external_load($_SESSION['rpx']['profile']['identifier']);
 
@@ -121,6 +122,7 @@ function rpx_end_point() {
       // ok, log them in, go to where we need to go.
       user_external_login($account);
       drupal_set_message( t('Welcome back, ' . $account->full_name) );
+      drupal_goto();
     } else {
       // fresh meat, go get registered.
       if (! _rpx_blind_registration() ) {
