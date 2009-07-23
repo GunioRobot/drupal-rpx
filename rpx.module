@@ -428,7 +428,7 @@ function _rpx_providers() {
   
   $active = array();
   foreach( $providers as $key => $value ) {
-    if (variable_get('rpx_' . $key, true))
+    if (variable_get('rpx_' . $key))
       $active[$key] = $value;
   }
   
