@@ -11,6 +11,7 @@
  * Implementation of hook_init()
  */
 function rpx_init() {
+  define('RPX_CLIENT_VERSION', 'Drupal');
   require_once('rpx.class.php');
   drupal_add_css('rpx.css');  
 }
