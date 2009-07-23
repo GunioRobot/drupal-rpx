@@ -14,7 +14,7 @@ define('RPX_CLIENT_VERSION', 'Drupal');
  */
 function rpx_init() {
   require_once('rpx.class.php');
-  drupal_add_css('rpx.css');  
+  drupal_add_css(drupal_get_path('module', 'rpx') .'/rpx.css');
 }
 
 /**
