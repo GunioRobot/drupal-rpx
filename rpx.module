@@ -426,10 +426,15 @@ function _rpx_providers() {
   $providers['myspace'] = array('name' => 'myspace', 'title' => 'MySpace', 'domain' => 'myspace.com');
   $providers['live'] = array('name' => 'live', 'title' => 'Windows Live', 'domain' => 'live.com');
   
-  $active = array();
-  foreach( $providers as $key => $value ) {
-    if (variable_get('rpx_' . $key, false))
-      $active[$key] = $value;
+  $config_providers = variable_get('rpx_providers', false);
+  if ( $config_providers ) {
+    $active = array();
+    foreach( $config_providers as $p ) {
+      $key = str_replace( "rpx_", "", $p );
+      $active[ $key ] = $providers[ $key ]; 
+    }
+  } else {
+    $active = $providers;
   }
   
   return $active;
