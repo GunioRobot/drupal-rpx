@@ -207,7 +207,7 @@ function _rpx_user_login( &$account ) {
  * Populates a given account's data with $profile from an RPX server
  */
 function _rpx_populate_user_record( &$account, $payload ) {
-  $rpx_data = array( 'rpx_data' => $payload; );    
+  $rpx_data = array( 'rpx_data' => $payload );    
   return user_save( $account, $rpx_data );
 }
 
