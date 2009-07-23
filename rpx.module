@@ -12,8 +12,7 @@
  */
 function rpx_init() {
   require_once('rpx.class.php');
-  //LMT: add CSS like this 
-  drupal_add_css('rpx.css');
+  drupal_add_css('rpx.css');  
 }
 
 /**
@@ -200,25 +199,15 @@ function _rpx_user_register() {
  */
 function _rpx_user_login( &$account ) {
   if ($_SESSION['rpx'] && $account->uid)
-    _rpx_populate_user_record( $account, $_SESSION['rpx']['profile'] );
+    _rpx_populate_user_record( $account, $_SESSION['rpx'] );
 }
 
 
 /**
  * Populates a given account's data with $profile from an RPX server
  */
-function _rpx_populate_user_record( &$account, $profile ) {
-  
-  $rpx_data = array(
-      'full_name' => $profile['name']['formatted'],
-      'url' => $profile['url'],
-      'identity_provider' => $profile['providerName'],
-      'gender' => $profile['gender'],
-      'birthday' => $profile['birthday'],
-      'identity' => $profile['identifier'],
-      'email' => $profile['email']
-    );
-  
+function _rpx_populate_user_record( &$account, $payload ) {
+  $rpx_data = array( 'rpx_data' => $payload; );    
   return user_save( $account, $rpx_data );
 }
 
