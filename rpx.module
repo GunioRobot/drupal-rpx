@@ -54,8 +54,10 @@ function rpx_registration_page() {
     $output = t('Register a New Account');
     $output .= drupal_get_form('rpx_registration');
   } else {
+    $realm = variable_get('rpx_realm', '');
+
     // no RPX info, not logged in ... give 'em the RPX iframe.
-    $output = '<iframe id="rpx-embedded-registration" src="'. url('https://rpxdemo.rpxnow.com/openid/embed?token_url=' . _rpx_token_url()) . '" scrolling="no" frameBorder="no" style="width:400px;height:240px;"></iframe>';
+    $output = '<iframe id="rpx-embedded-registration" src="'. url('https://'.$realm.'.rpxnow.com/openid/embed?token_url=' . _rpx_token_url()) . '" scrolling="no" frameBorder="no" style="width:400px;height:240px;"></iframe>';
   }
   return $output;
 }
@@ -108,11 +110,11 @@ function rpx_registration_submit( $form, &$form_state ) {
 
 function rpx_end_point() {
   unset($_REQUEST['destination']); // we control your destiny, yo.
-  
+
   // first, check to see if we have a token -- we're completing an RPX transaction, in that case!
-  if ($_GET['token']) {
+  if ($_POST['token']) {
     
-    $_SESSION['rpx'] = RPX::auth_info( $_GET['token'], variable_get('rpx_apikey', '') );
+    $_SESSION['rpx'] = RPX::auth_info( $_POST['token'], variable_get('rpx_apikey', '') );
 
     // pull up the Drupal identity
     $account = user_external_load($_SESSION['rpx']['profile']['identifier']);
@@ -225,7 +227,8 @@ function rpx_admin_settings() {
   if (($api_key && !variable_get('rpx_realm', '')) || (isset($_POST['rpx_apikey']) && $api_key != $_POST['rpx_apikey'])) {
     // If the api key has changed, use the new key instead of the stored one
     $api_key = isset($_POST['rpx_apikey']) ? $_POST['rpx_apikey'] : $api_key;
-    $lookup = RPX::lookup($api_key, 'apiKey');        
+    $lookup = RPX::lookup($api_key, 'apiKey');
+
     if ($lookup['adminUrl'] != 'N' ) {
       variable_set('rpx_admin_url', $lookup['adminUrl']);
       variable_set('rpx_realm', $lookup['realm']);
@@ -279,12 +282,11 @@ function rpx_admin_settings_form() {
     '#description' => t('The API Key provided for this site at <a href="@account_link">@account_link</a>', array('@account_link' => 'https://rpxnow.com/account')),
   );
   
-  $form['api']['rpx_realm_hidden'] = array(
+  $form['api']['rpx_realm'] = array(
     '#type' => 'textfield',
     '#title' => t('RPX Realm'),
-    '#default_value' => variable_get('rpx_apikey', '') ? variable_get('rpx_realm', '') : '',
-    '#description' => t('The RPX realm for this site (Set automatically based on your API Key)'),
-    '#attributes' => array('disabled' => 'disabled')
+    '#default_value' => variable_get('rpx_realm', ''),
+    '#description' => t('The RPX realm for this site (Set automatically based on your API Key)') //,
   );
   $form['api']['rpx_admin_url_hidden'] = array(
     '#type' => 'textfield',
