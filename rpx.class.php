@@ -23,7 +23,7 @@ class RPX {
         $type => $value,
         'demographics' => $demographics
       );
-    
+
     $raw_result = RPX::http_post( RPX::lookup_api, $post_data );
     return json_decode( $raw_result, true );
   }
@@ -82,7 +82,14 @@ class RPX {
   /* next three functions are for sending HTTP POST requests */
   function http_post($url, $post_data) {
     if (function_exists('curl_init')) {
-      return RPX::curl_http_post($url, $post_data);
+      $curl_result = RPX::curl_http_post($url, $post_data);
+      // if the curl call errors out, which can happen for a number of reasons,
+      // try the other method.
+      if (!$curl_result){
+          $builtin_result = RPX::builtin_http_post($url, $post_data);
+          return $builtin_result;
+      }
+      return $curl_result;
     } else {
       return RPX::builtin_http_post($url, $post_data);
     }
@@ -102,7 +109,7 @@ class RPX {
   }
 
 
-  function rpx_builtin_http_post($url, $post_data) {
+  function builtin_http_post($url, $post_data) {
     $content = http_build_query($post_data);
     $opts = array('http'=>array('method'=>"POST", 'content'=>$content));
     $context = stream_context_create($opts);
