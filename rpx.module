@@ -329,6 +329,7 @@ function rpx_admin_settings_form() {
   return system_settings_form($form);
 }
 
+/* set display list of providers from enabled list via rpx profile */
 function rpx_get_admin_provider_array(){
     $providers = variable_get('rpx_enabled_providers','');
     $displayList = array();
