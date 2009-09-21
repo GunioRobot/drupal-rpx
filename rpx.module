@@ -360,6 +360,33 @@ function rpx_get_admin_provider_array(){
                 str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) .
                 '" target="_blank">Install your Windows Live Application ID</a>';
         }
+        if ($providerName == 'blogger'){
+            $displayList['rpx_blogger'] = t('Accept Blogger Identities');
+        }
+        if ($providerName == 'flickr'){
+            $displayList['rpx_flickr'] = t('Accept Flickr Identities');
+        }
+        if ($providerName == 'wordpress'){
+            $displayList['rpx_wordpress'] = t('Accept Wordpress Identities');
+        }
+        if ($providerName == 'livejournal'){
+            $displayList['rpx_livejournal'] = t('Accept Livejournal Identities');
+        }
+        if ($providerName == 'twitter'){
+            $displayList['rpx_twitter'] = t('Accept Twitter Identities');
+        }
+        if ($providerName == 'hyves'){
+            $displayList['rpx_hyves'] = t('Accept Hyves Identities');
+        }
+        if ($providerName == 'myopenid'){
+            $displayList['rpx_myopenid'] = t('Accept myOpenId Identities');
+        }
+        if ($providerName == 'netlog'){
+            $displayList['rpx_netlog'] = t('Accept Netlog Identities');
+        }
+        if ($providerName == 'verisign'){
+            $displayList['rpx_verisign'] = t('Accept Verisign Identities');
+        }
     }
     return $displayList;
 }
@@ -459,6 +486,15 @@ function _rpx_providers() {
   $providers['facebook'] = array('name' => 'facebook', 'title' => 'Facebook', 'domain' => 'facebook.com');
   $providers['myspace'] = array('name' => 'myspace', 'title' => 'MySpace', 'domain' => 'myspace.com');
   $providers['live'] = array('name' => 'live', 'title' => 'Windows Live', 'domain' => 'live.com');
+  $providers['blogger'] = array('name' => 'blogger', 'title' => 'Blogger', 'domain' => 'blogger.com');
+  $providers['flickr'] = array('name' => 'flickr', 'title' => 'Flickr', 'domain' => 'flickr.com');
+  $providers['wordpress'] = array('name' => 'wordpress', 'title' => 'Wordpress', 'domain' => 'wordpress.com');
+  $providers['livejournal'] = array('name' => 'livejournal', 'title' => 'Livejournal', 'domain' => 'livejournal.com');
+  $providers['twitter'] = array('name' => 'twitter', 'title' => 'Twitter', 'domain' => 'twitter.com');
+  $providers['hyves'] = array('name' => 'hyves', 'title' => 'Hyves', 'domain' => 'hyves.nl');
+  $providers['myopenid'] = array('name' => 'myopenid', 'title' => 'myOpenId', 'domain' => 'myopenid.com');
+  $providers['netlog'] = array('name' => 'netlog', 'title' => 'Netlog', 'domain' => 'netlog.com');
+  $providers['verisign'] = array('name' => 'verisign', 'title' => 'Verisign', 'domain' => 'verisign.com');
   
   $config_providers = variable_get('rpx_providers', false);
   if ( $config_providers ) {
