@@ -232,9 +232,15 @@ function rpx_admin_settings() {
     if ($lookup['adminUrl'] != 'N' ) {
       variable_set('rpx_admin_url', $lookup['adminUrl']);
       variable_set('rpx_realm', $lookup['realm']);
+      // get the provider info as well
+      if ($lookup){
+          $providers = RPX::get_enabled_providers($lookup['realm']);
+          variable_set('rpx_enabled_providers', $providers);
+      }
     } else {
       drupal_set_message( t('Looks like your API key was incorrect.  Please verify the key and try again.'), 'error', true );
     }
+
   }
   // If a token is set then lookup both the api key and extra rpx variables
   elseif (isset($_GET['token'])) {
@@ -304,21 +310,8 @@ function rpx_admin_settings_form() {
     );
 
   // LMT: note approach to checkbox list.
-  $providers = array(
-    'rpx_openid' => t('Accept OpenIDs'), 
-    'rpx_aol' => t('Accept AOL Identities'), 
-    'rpx_google' => t('Accept Google Identities'),
-    'rpx_yahoo' => t('Accept Yahoo! Identities'),
-    'rpx_facebook' => t('Accept Facebook Identities') . ' <a href="' . 
-      str_replace( 'stats', 'facebook', variable_get('rpx_admin_url','') ) . 
-      '" target="_blank">Install your Facebook Application Key</a>',
-    'rpx_myspace' => t('Accept MySpace Identities') . ' <a href="' . 
-       str_replace( 'stats', 'myspace_settings', variable_get('rpx_admin_url','') ) . 
-       '" target="_blank">Install your MySpace Consumer Key</a>',
-    'rpx_live' => t('Accept Windows Live Identities') . ' <a href="' . 
-       str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) . 
-       '" target="_blank">Install your Windows Live Application ID</a>'
-  );  
+  $providers = rpx_get_admin_provider_array();
+
   $form['providers']['rpx_providers'] = array(
     '#type' => 'checkboxes',
     '#title' => t('Select which providers to accept'),
@@ -334,6 +327,41 @@ function rpx_admin_settings_form() {
   );
 
   return system_settings_form($form);
+}
+
+function rpx_get_admin_provider_array(){
+    $providers = variable_get('rpx_enabled_providers','');
+    $displayList = array();
+    foreach ($providers as $providerName){
+        if ($providerName == 'openid'){
+            $displayList['rpx_openid'] = t('Accept OpenIDs');
+        }
+        if ($providerName == 'aol'){
+            $displayList['rpx_aol'] = t('Accept AOL Identities');
+        }
+        if ($providerName == 'google'){
+            $displayList['rpx_google'] = t('Accept Google Identities');
+        }
+        if ($providerName == 'yahoo'){
+            $displayList['rpx_yahoo'] = t('Accept Yahoo! Identities');
+        }
+        if ($providerName == 'facebook'){
+            $displayList['rpx_facebook'] = t('Accept Facebook Identities') . ' <a href="' .
+                str_replace( 'stats', 'facebook', variable_get('rpx_admin_url','') ) .
+                '" target="_blank">Install your Facebook Application Key</a>';
+        }
+        if ($providerName == 'myspace'){
+            $displayList['rpx_myspace'] = t('Accept MySpace Identities') . ' <a href="' .
+                str_replace( 'stats', 'myspace_settings', variable_get('rpx_admin_url','') ) .
+                '" target="_blank">Install your MySpace Consumer Key</a>';
+        }
+        if ($providerName == 'live'){
+            $displayList['rpx_live'] = t('Accept Windows Live Identities') . ' <a href="' .
+                str_replace( 'stats', 'live_id_settings', variable_get('rpx_admin_url','') ) .
+                '" target="_blank">Install your Windows Live Application ID</a>';
+        }
+    }
+    return $displayList;
 }
 
 /**
@@ -422,6 +450,7 @@ function _rpx_token_url() {
  * Return an array of RPX providers
  */
 function _rpx_providers() {
+
   // LMT: seems this provider list should match that saved in the admin settings and not repeated here. Also needs to respect admin selections
   $providers['openid'] = array('name' => 'openid', 'title' => 'OpenID', 'domain' => '');
   $providers['aol'] = array('name' => 'aol', 'title' => 'AOL/AIM', 'domain' => 'openid.aol.com');

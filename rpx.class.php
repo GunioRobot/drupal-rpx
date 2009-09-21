@@ -10,6 +10,7 @@ class RPX {
   const create_api = 'https://rpxnow.com/plugin/create_rp';
   const lookup_api = 'https://rpxnow.com/plugin/lookup_rp';
   const auth_api = 'https://rpxnow.com/api/v2/auth_info';
+  const status_api = 'https://rpxnow.com/api/v2/set_status';
     
   /* performs a lookup request for getting information about an RPX account */
   function lookup( $value, $type ) {
@@ -40,7 +41,29 @@ class RPX {
       return json_decode( $raw_result, true );
   }
 
-  function locales() { 
+  /* Set user status */
+  function set_status( $api_key, $identifier, $status ) {
+    $post_data = array(
+        'identifier' => $identifier,
+        'apiKey' => $api_key,
+        'status' => $status,
+        'format' => 'json'
+      );
+
+      return RPX::http_post( RPX::status_api, $post_data );
+  }
+
+  /* get the list and order of providers */
+  function get_enabled_providers($realm){
+    $url = "https://" . $realm . "/openid/ui_config";
+    $context = stream_context_create();
+    $raw_data = file_get_contents($url, 0, $context);
+
+    $data = json_decode( $raw_data, true );
+    return $data["enabled_providers"];
+  }
+
+  function locales() {
     return array('pt-BR', 'vi', 'zh', 'nl', 'sr', 'ko', 'ru', 'sv-SE', 'ro', 'pt', 'it', 'hu', 'fr', 'ja', 'en', 'bg', 'es', 'el', 'pl', 'de', 'cs', 'da');
   }
   
