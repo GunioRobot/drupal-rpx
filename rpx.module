@@ -302,22 +302,23 @@ function rpx_admin_settings_form() {
     '#attributes' => array('disabled' => 'disabled')
   );
   
-  $form['providers'] = array(
-      '#type' => 'fieldset',
-      '#title' => 'Identity Providers',
-      '#collapsible' => TRUE,
-      '#collapsed' => FALSE
-    );
 
-  // LMT: note approach to checkbox list.
   $providers = rpx_get_admin_provider_array();
-
-  $form['providers']['rpx_providers'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Select which providers to accept'),
-    '#options' => $providers,
-    '#default_value' => variable_get('rpx_providers', array())
-  );
+  if (count($providers)) {
+    $form['providers'] = array(
+        '#type' => 'fieldset',
+        '#title' => 'Identity Providers',
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE
+      );
+    // LMT: note approach to checkbox list.
+    $form['providers']['rpx_providers'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Select which providers to accept'),
+      '#options' => $providers,
+      '#default_value' => variable_get('rpx_providers', array())
+    );
+  }
   
   $form['rpx_attach_login_form'] = array(
     '#type' => 'checkbox',
@@ -331,7 +332,11 @@ function rpx_admin_settings_form() {
 
 /* set display list of providers from enabled list via rpx profile */
 function rpx_get_admin_provider_array(){
-    $providers = variable_get('rpx_enabled_providers','');
+    $providers = variable_get('rpx_enabled_providers', array());
+    if ( !count($providers) && $realm = variable_get('rpx_realm', '')) {
+      $providers = RPX::get_enabled_providers($realm);
+      variable_set('rpx_enabled_providers', $providers);
+    }
     $displayList = array();
     foreach ($providers as $providerName){
         if ($providerName == 'openid'){
