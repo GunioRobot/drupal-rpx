@@ -17,6 +17,8 @@ Installation
    modules/ directory of your Drupal application.
 2. Enable the module in Drupal at Administer > Site Building > Modules > Other
 3. Provide your RPX API Key at Administer > Site Configuration > RPX Configuration
+4. Recommended: Change your user settings to allow users to create accounts without
+   administrator approval at Administer > User Management > User Settings
  
 ... If you don't have an API Key, click the "Setup this site for RPX" link, and one will
 installed for you.
