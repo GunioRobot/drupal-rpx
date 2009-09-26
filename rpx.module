@@ -25,7 +25,7 @@ function rpx_menu() {
       'title' => 'RPX Configuration',
       'description' => t('Configure the settings for RPX.'),
       'page callback' => 'rpx_admin_settings',
-      'access arguments' => array('administer settings'),
+      'access arguments' => array('administer site configuration'),
       'type' => MENU_NORMAL_ITEM
     );
 
