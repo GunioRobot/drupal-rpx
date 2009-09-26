@@ -48,6 +48,26 @@ function rpx_menu() {
   return $items;
 }
 
+/**
+ * Implementation of hook_block().
+ */
+function rpx_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0]['info'] = t('RPX Sign-In');
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $block = array();
+    switch ($delta) {
+      case 0:
+        $block['subject'] = t('RPX Sign-In');
+        $block['content'] = _rpx_signin_block();
+        break;
+    }
+    return $block;
+  }
+}
+
 function rpx_registration_page() {
   // check to see if they have RPX information in their session.
   if ( $_SESSION['rpx'] ) {
