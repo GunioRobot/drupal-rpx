@@ -112,9 +112,14 @@ function rpx_end_point() {
   unset($_REQUEST['destination']); // we control your destiny, yo.
 
   // first, check to see if we have a token -- we're completing an RPX transaction, in that case!
-  if ($_POST['token']) {
+  if (isset($_POST['token'])) {
+      $token = $_POST['token'];
+  } else {
+      $token = $_GET['token'];
+  }
+  if ($token) {
     
-    $_SESSION['rpx'] = RPX::auth_info( $_POST['token'], variable_get('rpx_apikey', '') );
+    $_SESSION['rpx'] = RPX::auth_info( $token, variable_get('rpx_apikey', '') );
 
     // pull up the Drupal identity
     $account = user_external_load($_SESSION['rpx']['profile']['identifier']);
