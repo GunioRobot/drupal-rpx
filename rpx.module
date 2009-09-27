@@ -333,14 +333,15 @@ function rpx_admin_settings_form() {
     '#attributes' => array('disabled' => 'disabled')
   );
   
-
-  $providers = rpx_get_admin_provider_array();
+  $force_lookup = isset($_GET['update-providers']) ? TRUE : FALSE;
+  $providers = rpx_get_admin_provider_array($force_lookup);
   if (count($providers)) {
     $form['providers'] = array(
         '#type' => 'fieldset',
         '#title' => 'Identity Providers',
         '#collapsible' => TRUE,
-        '#collapsed' => FALSE
+        '#collapsed' => FALSE,
+        '#description' => t('<a href="@url">Click here</a> to update your list of enabled providers from the RPX servers.', array('@url' => '?update-providers'))
       );
     // LMT: note approach to checkbox list.
     $form['providers']['rpx_providers'] = array(
@@ -362,9 +363,10 @@ function rpx_admin_settings_form() {
 }
 
 /* set display list of providers from enabled list via rpx profile */
-function rpx_get_admin_provider_array(){
+function rpx_get_admin_provider_array($force_lookup = FALSE){
     $providers = variable_get('rpx_enabled_providers', array());
-    if ( !count($providers) && $realm = variable_get('rpx_realm', '')) {
+    $realm = variable_get('rpx_realm', '');
+    if ( (!count($providers) && $realm) || $force_lookup ) {
       $providers = RPX::get_enabled_providers($realm);
       variable_set('rpx_enabled_providers', $providers);
     }
