@@ -145,7 +145,6 @@ function rpx_registration_submit( $form, &$form_state ) {
 }
 
 function rpx_end_point() {
-  unset($_REQUEST['destination']); // we control your destiny, yo.
 
   // first, check to see if we have a token -- we're completing an RPX transaction, in that case!
   if (isset($_POST['token'])) {
@@ -164,12 +163,13 @@ function rpx_end_point() {
     if ( $account->uid ) {
       // ok, log them in, go to where we need to go.
       user_external_login($account);
-      drupal_set_message( t('Welcome back, ' . $account->full_name) );
       drupal_goto();
     } else {
       // fresh meat, go get registered.
       if (! _rpx_blind_registration() ) {
-        drupal_goto('rpx/registration'); // hmm, missing pieces.  go get 'em.
+        $dest = $_REQUEST['destination'];
+        unset($_REQUEST['destination']); 
+        drupal_goto('rpx/registration', 'destination='. $dest); // hmm, missing pieces.  go get 'em.
       }
     }
   } else {  
@@ -183,28 +183,19 @@ function rpx_end_point() {
 /**
  * Attempts to build and save a new user record from RPX data.
  */
-function _rpx_blind_registration() {  
+function _rpx_blind_registration() {
   // check if users are allowed to register on their own
   if (variable_get('user_register', 1)) {
     // the person isn't registered, and they can register, so they should!
     
     // fill in the default data
-    $form_state['redirect'] = NULL;
     $form_state['values']['name'] = $_SESSION['rpx']['profile']['preferredUsername'];
     $form_state['values']['mail'] = $_SESSION['rpx']['profile']['email'];
     $form_state['values']['pass']  = user_password();
     $form_state['values']['status'] = variable_get('user_register', 1) == 1;
     $form_state['values']['authname_rpx'] = $_SESSION['rpx']['identifier'];  // for external authorization
 
-    $form = drupal_retrieve_form('rpx_registration', $form_state);
-    drupal_prepare_form('rpx_registration', $form, $form_state);
-    drupal_validate_form('rpx_registration', $form, $form_state);
-    
-    // handle validation errors
-    if (!form_get_errors()) {
-      rpx_registration_submit( $form, $form_state );
-      return true;
-    }
+    drupal_execute('rpx_registration', $form_state);
   } 
 
   return false;
@@ -518,7 +509,14 @@ function _rpx_update_user_login_form( &$form, &$form_state ) {
  * Return the URL that will receive the RPX sign-in callback
  */
 function _rpx_token_url() {
-  return url('rpx/end_point', array('query' => drupal_get_destination(), 'absolute' => TRUE));
+  // Set destination so user will return to current page after login/registration
+  $dest = drupal_get_destination();
+  // If initiating RPX login/registration from login or registration page send
+  // user to their account page
+  if (strpos($dest, 'user%2Flogin') !== FALSE || strpos($dest, 'user%2Fregister') !== FALSE) {
+    $dest = 'destination=user';
+  }
+  return url('rpx/end_point', array('query' => $dest, 'absolute' => TRUE));
 }
 
 
