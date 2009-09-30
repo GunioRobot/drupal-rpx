@@ -112,17 +112,21 @@ function rpx_registration_validate( $form, &$form_state ) {
   $form_state['values']['status'] = variable_get('user_register', 1) == 1;
   $form_state['values']['authname_rpx'] = $_SESSION['rpx']['profile']['identifier'];  // for external authorization
     
-  // must be unique name, must be unique mail
+  // must be a valid and unique name
   if ($msg = user_validate_name($form_state['values']['name'])) {
     form_set_error('name', $msg );
   }
-  elseif (user_load( array( 'name' => $form_state['values']['name'] ) ) )
+  elseif (user_load( array( 'name' => $form_state['values']['name'] ) ) ) {
     form_set_error('name', t('Someone is already using that user name, please use another.') );
+  }
+  
+  // must be a valid and unique mail
   if ($msg = user_validate_mail($form_state['values']['mail'])) {
     form_set_error('mail', $msg);
   }
-  elseif (user_load( array( 'mail' => $form_state['values']['mail'] ) ) )
+  elseif (user_load( array( 'mail' => $form_state['values']['mail'] ) ) ) {
     form_set_error('mail', t('Someone has already registered that e-mail address.  Please enter another, or perhaps you have already registered with a different account?'));
+  }
 }
 
 function rpx_registration_submit( $form, &$form_state ) {
