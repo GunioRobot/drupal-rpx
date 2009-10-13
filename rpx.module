@@ -440,13 +440,157 @@ function _rpx_locale() {
  * Implementation of hook_form_alter : adds RPX login to forms.
  */
 function rpx_form_alter(&$form, &$form_state, $form_id) {
-  //LMT: flipped conditions to not take db hit if not relevant form
-  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
-    if (variable_get('rpx_attach_login_form', 0)) {
-      $form = _rpx_update_user_login_form($form, $form_state);
+    //LMT: flipped conditions to not take db hit if not relevant form
+    if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+        if (variable_get('rpx_attach_login_form', 0)) {
+          $form = _rpx_update_user_login_form($form, $form_state);
+        }
     }
-  }
+    if ($form_id == 'user_profile_form'){
+        $form = _rpx_update_user_profile_form($form, $form_state);
+    }
   return $form;
+}
+
+function _rpx_update_user_profile_form( &$form, &$form_state ) {
+    $userData = user_load_self(array());
+    $userData = $userData[1]->rpx_data['profile'];
+
+    $form['name'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Name'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+    );
+    $form['name']['givenName'] = array(
+        '#type' => 'textfield',
+        '#title' => t('First name'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['name']['givenName'])) ? $userData['name']['givenName'] : '',
+        '#description' => "Please enter your first name.",
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['name']['familyName'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Last name'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['name']['familyName'])) ? $userData['name']['familyName'] : '',
+        '#description' => "Please enter your last name.",
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['displayName'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Display Name'),
+        '#default_value' => (isset($userData['displayName'])) ? $userData['displayName'] : '',
+        '#description' => "The name of this Contact, suitable for display to end-users.",
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['preferredUsername'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Preferred Username'),
+        '#default_value' => (isset($userData['preferredUsername'])) ? $userData['preferredUsername'] : '',
+        '#description' => "The preferred username of this contact on sites that ask for a username.",
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['gender'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Gender'),
+        '#default_value' =>  (isset($userData['gender'])) ? $userData['gender'] : '',
+        '#description' => "The gender of this person. Canonical values are 'male', and 'female', but may be any value.",
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['birthday'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Birthday'),
+        '#default_value' => (isset($userData['birthday'])) ? $userData['birthday'] : '',
+        '#description' => "Date of birth in YYYY-MM-DD format. Year field may be 0000 if unavailable.",
+        '#size' => 10,
+    );
+    $form['phoneNumber'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Phone Number'),
+        '#default_value' => (isset($userData['phoneNumber'])) ? $userData['phoneNumber'] : '',
+        '#description' => "A phone number at which the person may be reached.",
+        '#size' => 20,
+    );
+    $form['photo'] = array (
+        '#type' => 'textfield',
+        '#title' => t('Photo'),
+        '#default_value' => (isset($userData['photo'])) ? $userData['photo'] : '',
+        '#description' => "URL to a photo (GIF/JPG/PNG) of the person.",
+        '#size' => 100,
+    );
+    $form['address'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Address'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+    );
+    $form['address']['streetAddress'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Street Address'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['address']['streetAddress'])) ? $userData['address']['streetAddress'] : '',
+        '#size' => 20,
+        '#maxlength' => 50,
+    );
+    $form['address']['locality'] = array(
+        '#type' => 'textfield',
+        '#title' => t('City'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['address']['locality'])) ? $userData['address']['locality'] : '',
+        '#size' => 20,
+        '#maxlength' => 40,
+    );
+    $form['address']['region'] = array(
+        '#type' => 'textfield',
+        '#title' => t('State'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['address']['region'])) ? $userData['address']['region'] : '',
+        '#size' => 15,
+    );
+    $form['address']['postalCode'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Zipcode'),
+        '#required' => FALSE,
+        '#default_value' =>  (isset($userData['address']['postalCode'])) ? $userData['address']['postalCode'] : '',
+        '#size' => 12,
+    );
+    $form['address']['country'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Country'),
+        '#required' => FALSE,
+        '#default_value' => (isset($userData['address']['country'])) ? $userData['address']['country'] : '',
+        '#size' => 30,
+    );
+    $form['#submit'][] = 'rpx_update_user_profile_form_submit';
+    return $form;
+}
+
+function rpx_update_user_profile_form_submit($form_values) {
+    $userDataAll = user_load_self(array());
+    $userDataRpxProfile = $userDataAll[1]->rpx_data;
+    $userDataRpxProfile['profile']['name']['givenName'] = $form_values['#post']['givenName'];
+    $userDataRpxProfile['profile']['name']['familyName'] = $form_values['#post']['familyName'];
+    $userDataRpxProfile['profile']['displayName'] = $form_values['#post']['displayName'];
+    $userDataRpxProfile['profile']['preferredUsername'] = $form_values['#post']['preferredUsername'];
+    $userDataRpxProfile['profile']['gender'] = $form_values['#post']['gender'];
+    $userDataRpxProfile['profile']['birthday'] = $form_values['#post']['birthday'];
+    $userDataRpxProfile['profile']['phoneNumber'] = $form_values['#post']['phoneNumber'];
+    $userDataRpxProfile['profile']['photo'] = $form_values['#post']['photo'];
+    $userDataRpxProfile['profile']['address']['streetAddress'] = $form_values['#post']['streetAddress'];
+    $userDataRpxProfile['profile']['address']['locality'] = $form_values['locality'];
+    $userDataRpxProfile['profile']['address']['region'] = $form_values['#post']['region'];
+    $userDataRpxProfile['profile']['address']['postalCode'] = $form_values['#post']['postalCode'];
+    $userDataRpxProfile['profile']['address']['country'] = $form_values['#post']['country'];
+
+    $rpx_data = array( 'rpx_data' => $userDataRpxProfile );
+    return user_save( $GLOBALS['user'], $rpx_data );
 }
 
 function _rpx_update_user_login_form( &$form, &$form_state ) {
