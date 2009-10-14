@@ -25,7 +25,7 @@ function rpx_menu() {
       'title' => 'RPX Configuration',
       'description' => t('Configure the settings for RPX.'),
       'page callback' => 'rpx_admin_settings',
-      'access arguments' => array('administer settings'),
+      'access arguments' => array('administer site configuration'),
       'type' => MENU_NORMAL_ITEM
     );
 
@@ -46,6 +46,26 @@ function rpx_menu() {
   
 
   return $items;
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function rpx_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0]['info'] = t('RPX Sign-In');
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $block = array();
+    switch ($delta) {
+      case 0:
+        $block['subject'] = t('RPX Sign-In');
+        $block['content'] = _rpx_signin_block();
+        break;
+    }
+    return $block;
+  }
 }
 
 function rpx_registration_page() {
@@ -92,24 +112,39 @@ function rpx_registration_validate( $form, &$form_state ) {
   $form_state['values']['status'] = variable_get('user_register', 1) == 1;
   $form_state['values']['authname_rpx'] = $_SESSION['rpx']['profile']['identifier'];  // for external authorization
     
-  // must be unique name, must be unique mail
-  if (user_load( array( 'name' => $form_state['values']['name'] ) ) )
+  // must be a valid and unique name
+  if ($msg = user_validate_name($form_state['values']['name'])) {
+    form_set_error('name', $msg );
+  }
+  elseif (user_load( array( 'name' => $form_state['values']['name'] ) ) ) {
     form_set_error('name', t('Someone is already using that user name, please use another.') );
-  if (user_load( array( 'mail' => $form_state['values']['mail'] ) ) )
+  }
+  
+  // must be a valid and unique mail
+  if ($msg = user_validate_mail($form_state['values']['mail'])) {
+    form_set_error('mail', $msg);
+  }
+  elseif (user_load( array( 'mail' => $form_state['values']['mail'] ) ) ) {
     form_set_error('mail', t('Someone has already registered that e-mail address.  Please enter another, or perhaps you have already registered with a different account?'));
+  }
 }
 
 function rpx_registration_submit( $form, &$form_state ) {
   $account = user_save('', $form_state['values']);
   $account = _rpx_populate_user_record( $account, $_SESSION['rpx'] );
   
-  // log 'em in, yo.
-  user_external_login( $account );
+  if ($account->status) {
+    // log 'em in, yo.
+    user_external_login( $account );
+  }
+  else {
+    _user_mail_notify('register_pending_approval', $account);
+    drupal_set_message(t('You\'re account must be approved by an administrator before you are able to login to the site.'));
+  }
   drupal_goto();
 }
 
 function rpx_end_point() {
-  unset($_REQUEST['destination']); // we control your destiny, yo.
 
   // first, check to see if we have a token -- we're completing an RPX transaction, in that case!
   if (isset($_POST['token'])) {
@@ -128,12 +163,13 @@ function rpx_end_point() {
     if ( $account->uid ) {
       // ok, log them in, go to where we need to go.
       user_external_login($account);
-      drupal_set_message( t('Welcome back, ' . $account->full_name) );
       drupal_goto();
     } else {
       // fresh meat, go get registered.
       if (! _rpx_blind_registration() ) {
-        drupal_goto('rpx/registration'); // hmm, missing pieces.  go get 'em.
+        $dest = $_REQUEST['destination'];
+        unset($_REQUEST['destination']); 
+        drupal_goto('rpx/registration', 'destination='. $dest); // hmm, missing pieces.  go get 'em.
       }
     }
   } else {  
@@ -147,28 +183,19 @@ function rpx_end_point() {
 /**
  * Attempts to build and save a new user record from RPX data.
  */
-function _rpx_blind_registration() {  
+function _rpx_blind_registration() {
   // check if users are allowed to register on their own
   if (variable_get('user_register', 1)) {
     // the person isn't registered, and they can register, so they should!
     
     // fill in the default data
-    $form_state['redirect'] = NULL;
     $form_state['values']['name'] = $_SESSION['rpx']['profile']['preferredUsername'];
     $form_state['values']['mail'] = $_SESSION['rpx']['profile']['email'];
     $form_state['values']['pass']  = user_password();
     $form_state['values']['status'] = variable_get('user_register', 1) == 1;
     $form_state['values']['authname_rpx'] = $_SESSION['rpx']['identifier'];  // for external authorization
 
-    $form = drupal_retrieve_form('rpx_registration', $form_state);
-    drupal_prepare_form('rpx_registration', $form, $form_state);
-    drupal_validate_form('rpx_registration', $form, $form_state);
-    
-    // handle validation errors
-    if (!form_get_errors()) {
-      rpx_registration_submit( $form, $form_state );
-      return true;
-    }
+    drupal_execute('rpx_registration', $form_state);
   } 
 
   return false;
@@ -307,14 +334,15 @@ function rpx_admin_settings_form() {
     '#attributes' => array('disabled' => 'disabled')
   );
   
-
-  $providers = rpx_get_admin_provider_array();
+  $force_lookup = isset($_GET['update-providers']) ? TRUE : FALSE;
+  $providers = rpx_get_admin_provider_array($force_lookup);
   if (count($providers)) {
     $form['providers'] = array(
         '#type' => 'fieldset',
         '#title' => 'Identity Providers',
         '#collapsible' => TRUE,
-        '#collapsed' => FALSE
+        '#collapsed' => FALSE,
+        '#description' => t('<a href="@url">Click here</a> to update your list of enabled providers from the RPX servers.', array('@url' => '?update-providers'))
       );
     // LMT: note approach to checkbox list.
     $form['providers']['rpx_providers'] = array(
@@ -336,9 +364,10 @@ function rpx_admin_settings_form() {
 }
 
 /* set display list of providers from enabled list via rpx profile */
-function rpx_get_admin_provider_array(){
+function rpx_get_admin_provider_array($force_lookup = FALSE){
     $providers = variable_get('rpx_enabled_providers', array());
-    if ( !count($providers) && $realm = variable_get('rpx_realm', '')) {
+    $realm = variable_get('rpx_realm', '');
+    if ( (!count($providers) && $realm) || $force_lookup ) {
       $providers = RPX::get_enabled_providers($realm);
       variable_set('rpx_enabled_providers', $providers);
     }
@@ -624,7 +653,14 @@ function _rpx_update_user_login_form( &$form, &$form_state ) {
  * Return the URL that will receive the RPX sign-in callback
  */
 function _rpx_token_url() {
-  return url('rpx/end_point', array('query' => drupal_get_destination(), 'absolute' => TRUE));
+  // Set destination so user will return to current page after login/registration
+  $dest = drupal_get_destination();
+  // If initiating RPX login/registration from login or registration page send
+  // user to their account page
+  if (strpos($dest, 'user%2Flogin') !== FALSE || strpos($dest, 'user%2Fregister') !== FALSE) {
+    $dest = 'destination=user';
+  }
+  return url('rpx/end_point', array('query' => $dest, 'absolute' => TRUE));
 }
 
 
