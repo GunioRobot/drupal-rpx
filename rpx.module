@@ -206,8 +206,6 @@ function _rpx_blind_registration() {
  */
 function rpx_user( $op, &$edit, &$account, $category = NULL ) {
   switch( $op ) {
-    case 'login': // user just logged in
-      return _rpx_user_login( $account );
     case 'register': // account registration form is about to be displayed
       return _rpx_user_register();
   }
@@ -228,15 +226,6 @@ function _rpx_user_register() {
     );
 
   return $form;
-}
-
-
-/**
- * Update profile information from RPX after a successful login
- */
-function _rpx_user_login( &$account ) {
-  if ($_SESSION['rpx'] && $account->uid)
-    _rpx_populate_user_record( $account, $_SESSION['rpx'] );
 }
 
 
