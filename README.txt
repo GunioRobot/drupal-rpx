@@ -8,7 +8,7 @@ Description
 It's a simple module for using JanRain's RPX service in Drupal.
 
 RPX provides simple registration and login for OpenID, Facebook, MySpace, AOL, Yahoo!, Google,
-Twitter, Windows Live, and other identity providers.  Tres chic.
+Twitter, Windows Live, and other identity providers.
 
 Installation
 ============
