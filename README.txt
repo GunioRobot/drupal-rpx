@@ -1,7 +1,7 @@
 // $Id$
 
 Module: RPX
-Author: Peat Bakke <peat@janrain.com>, Nathan Rambeck <www.rambeck.com>
+Author: Peat Bakke <peat@janrain.com>, Nathan Rambeck <www.rambeck.com>, Rendahl Weishar <ren@janrain.com>
 
 Description
 ===========
