@@ -245,7 +245,7 @@ function rpx_admin_settings() {
   
   // If there is an api key and no rpx_realm OR the api key is being changed,
   // then do a callback lookup to get new rpx variables
-  if (($api_key && !variable_get('rpx_realm', '')) || (isset($_POST['rpx_apikey']) && $api_key != $_POST['rpx_apikey'])) {
+  if ($api_key || (isset($_POST['rpx_apikey']) && $api_key != $_POST['rpx_apikey'])) {
     // If the api key has changed, use the new key instead of the stored one
     $api_key = isset($_POST['rpx_apikey']) ? $_POST['rpx_apikey'] : $api_key;
     $lookup = RPX::lookup($api_key, 'apiKey');
@@ -253,6 +253,7 @@ function rpx_admin_settings() {
     if ($lookup['adminUrl'] != 'N' ) {
       variable_set('rpx_admin_url', $lookup['adminUrl']);
       variable_set('rpx_realm', $lookup['realm']);
+      variable_set('realm_scheme', $lookup['realmScheme']);
       // get the provider info as well
       if ($lookup){
           $providers = RPX::get_enabled_providers($lookup['realm']);
@@ -268,6 +269,7 @@ function rpx_admin_settings() {
     $lookup = RPX::lookup($_GET['token'], 'token');
     variable_set('rpx_admin_url', $lookup['adminUrl']);
     variable_set('rpx_realm', $lookup['realm']);
+    variable_set('realm_scheme', $lookup['realmScheme']);
     variable_set('rpx_apikey', $lookup['apiKey']);
     // Redirect back to the setting page, without the token appended
     drupal_goto('admin/settings/rpx');
@@ -331,7 +333,7 @@ function rpx_admin_settings_form() {
         '#title' => 'Identity Providers',
         '#collapsible' => TRUE,
         '#collapsed' => FALSE,
-        '#description' => t('<a href="@url">Click here</a> to update your list of enabled providers from the RPX servers.', array('@url' => '?update-providers'))
+        '#description' => t('<a href="@url">Click here</a> to update your list of enabled providers from the RPX servers.', array('@url' => (preg_match('/update-providers/', $_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI']: $_SERVER['REQUEST_URI'].'&update-providers'))
       );
     // LMT: note approach to checkbox list.
     $form['providers']['rpx_providers'] = array(
