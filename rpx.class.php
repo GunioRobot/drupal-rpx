@@ -3,7 +3,7 @@
   Generic RPX Library
 */
 
-define('RPX_LIBRARY_VERSION', '0.1');
+define('RPX_LIBRARY_VERSION', '0.2');
 
 class RPX {
 
@@ -54,8 +54,8 @@ class RPX {
   }
 
   /* get the list and order of providers */
-  function get_enabled_providers($realm){
-    $realm_scheme = variable_get('realm_scheme', '');
+  function get_enabled_providers($realm, $realm_scheme){
+    
     $url = $realm_scheme."://" . $realm . "/openid/ui_config";
     $context = stream_context_create();
     $raw_data = file_get_contents($url, 0, $context);

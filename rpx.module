@@ -256,7 +256,7 @@ function rpx_admin_settings() {
       variable_set('realm_scheme', $lookup['realmScheme']);
       // get the provider info as well
       if ($lookup){
-          $providers = RPX::get_enabled_providers($lookup['realm']);
+          $providers = RPX::get_enabled_providers($lookup['realm'], $lookup['realmScheme']);
           variable_set('rpx_enabled_providers', $providers);
       }
     } else {
@@ -356,10 +356,12 @@ function rpx_admin_settings_form() {
 
 /* set display list of providers from enabled list via rpx profile */
 function rpx_get_admin_provider_array($force_lookup = FALSE){
+  
     $providers = variable_get('rpx_enabled_providers', array());
     $realm = variable_get('rpx_realm', '');
+    $realm_scheme = variable_get('realm_scheme', '');
     if ( (!count($providers) && $realm) || $force_lookup ) {
-      $providers = RPX::get_enabled_providers($realm);
+      $providers = RPX::get_enabled_providers($realm, $realm_scheme);
       variable_set('rpx_enabled_providers', $providers);
     }
     $displayList = array();
