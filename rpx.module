@@ -75,9 +75,9 @@ function rpx_registration_page() {
     $output .= drupal_get_form('rpx_registration');
   } else {
     $realm = variable_get('rpx_realm', '');
-
+    $realm_scheme = variable_get('realm_scheme', '');
     // no RPX info, not logged in ... give 'em the RPX iframe.
-    $output = '<iframe id="rpx-embedded-registration" src="'. url('https://'.$realm.'.rpxnow.com/openid/embed?token_url=' . _rpx_token_url()) . '" scrolling="no" frameBorder="no" style="width:400px;height:240px;"></iframe>';
+    $output = '<iframe id="rpx-embedded-registration" src="'. url($realm_scheme.'://'.$realm.'/openid/embed?token_url=' . _rpx_token_url()) . '" scrolling="no" frameBorder="no" style="width:400px;height:240px;"></iframe>';
   }
   return $output;
 }
@@ -440,8 +440,16 @@ function rpx_footer($main = 0) {
       RPXNOW.overlay = true;
       RPXNOW.language_preference = "'. _rpx_locale() .'";
       RPXNOW.flags = "delay_domain_check";
+      RPXNOW.ssl = '._rpx_ssl().';
       <!-- End RPX Sign In -->
   </script>';
+}
+
+/**
+ * Return whether or not SSL is in use
+ */
+function _rpx_ssl() {
+    return (variable_get('realm_scheme', '') == 'https') ? 'true' : 'false';
 }
 
 /**
@@ -624,7 +632,8 @@ function _rpx_update_user_login_form( &$form, &$form_state ) {
   
   $items = array();
   $realm = variable_get('rpx_realm', '');
-  $sign_in_url = "https://{$realm}.rpxnow.com/openid/v2/signin";
+  $realm_scheme = variable_get('realm_scheme', '');
+  $sign_in_url = "$realm_scheme://$realm/openid/v2/signin";
   $token_url = _rpx_token_url();
   $providers = _rpx_providers();
   foreach ($providers as $provider) {
@@ -709,7 +718,8 @@ function _rpx_signin_block() {
   global $user;
   
   $realm = variable_get('rpx_realm', '');
-  $sign_in_url = "https://{$realm}.rpxnow.com/openid/v2/signin";
+  $realm_scheme = variable_get('realm_scheme', '');
+  $sign_in_url = "$realm_scheme://$realm/openid/v2/signin";
   $token_url = _rpx_token_url();
   
   // If already authenticated then don't show this block
@@ -717,6 +727,7 @@ function _rpx_signin_block() {
     return FALSE;
   }
   $providers = _rpx_providers();
+
   foreach ($providers as $provider) {
     $line[] = _rpx_provider_icon($provider['name']) .' '. l($provider['title'], $sign_in_url, array('query' => array('token_url' => $token_url), 'attributes' => array('class' => 'rpxnow', 'onclick' => 'return false;')));
   }
