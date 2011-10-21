@@ -11,15 +11,15 @@ class RPX {
   const lookup_api = 'https://rpxnow.com/plugin/lookup_rp';
   const auth_api = 'https://rpxnow.com/api/v2/auth_info';
   const status_api = 'https://rpxnow.com/api/v2/set_status';
-    
+
   /* performs a lookup request for getting information about an RPX account */
   function lookup( $value, $type ) {
     $demographics = 'PHP RPX ' . RPX_LIBRARY_VERSION;
-    
+
     if ( RPX_CLIENT_VERSION ) {
       $demographics .= " / " . RPX_CLIENT_VERSION;
     }
-    
+
     $post_data = array(
         $type => $value,
         'demographics' => $demographics
@@ -28,7 +28,7 @@ class RPX {
     $raw_result = RPX::http_post( RPX::lookup_api, $post_data );
     return json_decode( $raw_result, true );
   }
-  
+
   /* fetches authorization information from a token */
   function auth_info( $token, $api_key ) {
     $post_data = array(
@@ -36,7 +36,7 @@ class RPX {
         'apiKey' => $api_key,
         'format' => 'json'
       );
-      
+
       $raw_result = RPX::http_post( RPX::auth_api, $post_data );
       return json_decode( $raw_result, true );
   }
@@ -55,7 +55,7 @@ class RPX {
 
   /* get the list and order of providers */
   function get_enabled_providers($realm, $realm_scheme){
-    
+
     $url = $realm_scheme."://" . $realm . "/openid/ui_config";
     $context = stream_context_create();
     $raw_data = file_get_contents($url, 0, $context);
@@ -67,7 +67,7 @@ class RPX {
   function locales() {
     return array('pt-BR', 'vi', 'zh', 'nl', 'sr', 'ko', 'ru', 'sv-SE', 'ro', 'pt', 'it', 'hu', 'fr', 'ja', 'en', 'bg', 'es', 'el', 'pl', 'de', 'cs', 'da');
   }
-  
+
   /*
     Everything below is an internal utility function
   */
@@ -75,31 +75,31 @@ class RPX {
 
   /* builds the current URL for the page being looked at */
   function current_url() {
-    if(isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']=='on') {                    
+    if(isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']=='on') {
       $proto = "https";
-      $standard_port = '443';                                                 
-    } else {                                                                    
-      $proto = 'http';                                                        
-      $standard_port = '80';                                                  
-    }                                                                           
+      $standard_port = '443';
+    } else {
+      $proto = 'http';
+      $standard_port = '80';
+    }
 
-    $authority = $_SERVER['HTTP_HOST'];                                         
-    if (strpos($authority, ':') === FALSE &&                                    
-        $_SERVER['SERVER_PORT'] != $standard_port) {                            
-      $authority .= ':' . $_SERVER['SERVER_PORT'];                            
-    }                                                                           
+    $authority = $_SERVER['HTTP_HOST'];
+    if (strpos($authority, ':') === FALSE &&
+        $_SERVER['SERVER_PORT'] != $standard_port) {
+      $authority .= ':' . $_SERVER['SERVER_PORT'];
+    }
 
-    if (isset($_SERVER['REQUEST_URI'])) {                                       
-      $request_uri = $_SERVER['REQUEST_URI'];                                 
-    } else {                                                                    
-      $request_uri = $_SERVER['SCRIPT_NAME'] . $_SERVER['PATH_INFO'];         
-      $query = $_SERVER['QUERY_STRING'];                                      
-      if (isset($query)) {                                                    
-        $request_uri .= '?' . $query;                                       
-      }                                                                       
-    }                                                                           
+    if (isset($_SERVER['REQUEST_URI'])) {
+      $request_uri = $_SERVER['REQUEST_URI'];
+    } else {
+      $request_uri = $_SERVER['SCRIPT_NAME'] . $_SERVER['PATH_INFO'];
+      $query = $_SERVER['QUERY_STRING'];
+      if (isset($query)) {
+        $request_uri .= '?' . $query;
+      }
+    }
 
-    return $proto . '://' . $authority . $request_uri;                          
+    return $proto . '://' . $authority . $request_uri;
   }
 
 
